@@ -6,6 +6,7 @@ import pkg from "pg";
 import bcrypt from "bcrypt";
 import cors from "cors";
 import passport from "passport";
+import { GoogleGenAI } from "@google/genai";
 import "./auth.js";
 dotenv.config();
 
@@ -27,6 +28,8 @@ const pool = new Pool({
   database: process.env.DB_DATABASE,
 });
 
+// The client gets the API key from the environment variable `GEMINI_API_KEY`.
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Start Google OAuth
 app.get(
   "/auth/google",
@@ -34,7 +37,9 @@ app.get(
 );
 
 // Google OAuth Callback
-app.get("/auth/google/callback",passport.authenticate("google", { session: false }),
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { session: false }),
   (req, res) => {
     const user = req.user;
 
@@ -73,15 +78,15 @@ const auth = (req, res, next) => {
 };
 
 // Verify token is valid or active (not expired)
-app.post ('/verify-token', auth, (req, res) => {
+app.post("/verify-token", auth, (req, res) => {
   if (req.user) {
     res.status(200).json({
-      status: true
-    })
+      status: true,
+    });
   } else {
     res.status(401).json({
-      status: false
-    })
+      status: false,
+    });
   }
 });
 
@@ -118,10 +123,10 @@ app.post("/signup", async (req, res) => {
     );
 
     const user = result.rows[0];
-    await pool.query(
-        "INSERT INTO todos (user_id, todos) VALUES ($1, $2)",
-        [user.id, JSON.stringify([])]
-    );
+    await pool.query("INSERT INTO todos (user_id, todos) VALUES ($1, $2)", [
+      user.id,
+      JSON.stringify([]),
+    ]);
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: user.role },
       JWT_SECRET,
@@ -196,52 +201,57 @@ app.post("/login", async (req, res) => {
 // Get Todos
 app.get("/todos", auth, async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM todos WHERE user_id = $1",
-      [req.user.id]
-    );
-    res
-      .status(200)
-      .json({
-        message: "Success",
-        result: result.rows[0].todos,
-      });
+    const result = await pool.query("SELECT * FROM todos WHERE user_id = $1", [
+      req.user.id,
+    ]);
+    res.status(200).json({
+      message: "Success",
+      result: result.rows[0].todos,
+    });
   } catch (err) {
     console.error("Get todos error:", err.message);
     res.status(400).json({ message: "Error getting todos" });
   }
 });
 
-app.post("/todos/component", auth, async (req, res) => {
+app.post("/add/component", auth, async (req, res) => {
   const user_id = req.user.id;
-  const { componentId, componentTitle, componentType} = req.body;
-
-  const newComponent = {
-    componentId,
-    componentTitle,
-    componentType,
-    todos: []
-  };
+  const { componentId, componentTitle, componentType } = req.body;
+  let newComponent;
+  if (componentType === "todo") {
+    newComponent = {
+      componentId,
+      componentTitle,
+      componentType,
+      todos: [],
+    };
+  } else if (componentType === "Gemini") {
+    newComponent = {
+      componentId,
+      componentTitle,
+      componentType,
+      recentResponse: "",
+    };
+  }
 
   try {
     const result = await pool.query(
-        "SELECT todos FROM todos WHERE user_id = $1",
-        [user_id]
+      "SELECT todos FROM todos WHERE user_id = $1",
+      [user_id]
     );
 
     let existingTodos = result.rows[0]?.todos || [];
     existingTodos.push(newComponent);
 
-    await pool.query(
-        "UPDATE todos SET todos = $1 WHERE user_id = $2",
-        [JSON.stringify(existingTodos), user_id]
-    );
+    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [
+      JSON.stringify(existingTodos),
+      user_id,
+    ]);
 
     res.status(200).json({
       message: "New component added.",
-      newComponent: newComponent
+      newComponent: newComponent,
     });
-
   } catch (err) {
     console.error("Error adding component:", err.message);
     res.status(500).json({ message: "Failed to add new component." });
@@ -254,28 +264,28 @@ app.post("/todos/update-component", auth, async (req, res) => {
 
   try {
     const result = await pool.query(
-        "SELECT todos FROM todos WHERE user_id = $1",
-        [user_id]
+      "SELECT todos FROM todos WHERE user_id = $1",
+      [user_id]
     );
 
     let todosArray = result.rows[0]?.todos || [];
-    const index = todosArray.findIndex(c => c.componentId === componentId);
+    const index = todosArray.findIndex((c) => c.componentId === componentId);
     if (index === -1) {
       return res.status(404).json({ message: "Component not found" });
     }
 
     if (editMode) {
-      todosArray[index].todos = todosArray[index].todos.map(t =>
-          t.id === newTodo.id ? { ...t, ...newTodo } : t
+      todosArray[index].todos = todosArray[index].todos.map((t) =>
+        t.id === newTodo.id ? { ...t, ...newTodo } : t
       );
     } else {
       todosArray[index].todos.push(newTodo);
     }
 
-    await pool.query(
-        "UPDATE todos SET todos = $1 WHERE user_id = $2",
-        [JSON.stringify(todosArray), user_id]
-    );
+    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [
+      JSON.stringify(todosArray),
+      user_id,
+    ]);
 
     res.status(200).json({ message: "Todo updated", updatedTodos: todosArray });
   } catch (err) {
@@ -290,25 +300,27 @@ app.post("/todos/delete-component", auth, async (req, res) => {
 
   try {
     const result = await pool.query(
-        "SELECT todos FROM todos WHERE user_id = $1",
-        [user_id]
+      "SELECT todos FROM todos WHERE user_id = $1",
+      [user_id]
     );
 
     let todosArray = result.rows[0]?.todos || [];
 
-    const updatedTodos = todosArray.filter(c => c &&  c.componentId !== componentId);
+    const updatedTodos = todosArray.filter(
+      (c) => c && c.componentId !== componentId
+    );
 
     if (todosArray.length === updatedTodos.length) {
       return res.status(404).json({ message: "Component not found" });
     }
 
-    await pool.query(
-        "UPDATE todos SET todos = $1 WHERE user_id = $2",
-        [JSON.stringify(updatedTodos), user_id]
-    );
+    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [
+      JSON.stringify(updatedTodos),
+      user_id,
+    ]);
     res.status(200).json({
       message: "Component deleted successfully",
-      updatedTodos
+      updatedTodos,
     });
   } catch (err) {
     console.error("Error deleting component:", err.message);
@@ -321,24 +333,29 @@ app.post("/todos/update-title", auth, async (req, res) => {
   const { componentId, newTitle } = req.body;
 
   try {
-    const result = await pool.query("SELECT todos FROM todos WHERE user_id = $1", [user_id]);
+    const result = await pool.query(
+      "SELECT todos FROM todos WHERE user_id = $1",
+      [user_id]
+    );
     let existingTodos = result.rows[0]?.todos || [];
 
     // Update the title of the matching component
-    const updatedTodos = existingTodos.map(component => {
+    const updatedTodos = existingTodos.map((component) => {
       if (component.componentId === componentId) {
         return { ...component, componentTitle: newTitle };
       }
       return component;
     });
 
-    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [JSON.stringify(updatedTodos), user_id]);
+    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [
+      JSON.stringify(updatedTodos),
+      user_id,
+    ]);
 
     res.status(200).json({
       message: "Component title updated.",
-      updatedTodos
+      updatedTodos,
     });
-
   } catch (err) {
     console.error("Error updating component title:", err.message);
     res.status(500).json({ message: "Failed to update title." });
@@ -350,15 +367,20 @@ app.post("/todos/delete", auth, async (req, res) => {
   const { componentId, todoId } = req.body;
 
   try {
-    const result = await pool.query("SELECT todos FROM todos WHERE user_id = $1", [user_id]);
+    const result = await pool.query(
+      "SELECT todos FROM todos WHERE user_id = $1",
+      [user_id]
+    );
 
     let todosArray = result.rows[0]?.todos || [];
-    const componentIndex = todosArray.findIndex(c => c.componentId === componentId);
+    const componentIndex = todosArray.findIndex(
+      (c) => c.componentId === componentId
+    );
     if (componentIndex === -1) {
       return res.status(404).json({ message: "Component not found" });
     }
     todosArray[componentIndex].todos = todosArray[componentIndex].todos.filter(
-        todo => todo.id !== todoId
+      (todo) => todo.id !== todoId
     );
     await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [
       JSON.stringify(todosArray),
@@ -374,6 +396,49 @@ app.post("/todos/delete", auth, async (req, res) => {
     res.status(500).json({ message: "Failed to delete todo" });
   }
 });
+
+app.post("/generate-response", auth, async (req, res) => {
+  const { prompt } = req.body;
+  const updatedPrompt =
+    prompt +
+    " . Response should be very very small. Response should not exceed 100 words. Give plain formatted text.";
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: updatedPrompt,
+      config: {
+        thinkingConfig: {
+          thinkingBudget: 1, // Disables thinking
+        },
+      },
+    });
+    res.status(201).json({
+      data: response.text,
+    });
+  } catch (error) {
+    console.log("Error while getting response from gemini api ", error.message);
+  }
+});
+
+
+app.post ("/updateRecentResponse", auth, async (req, res) => {
+  // logic
+  const user_id = req.user.id;
+  const {componentId, newResponse} = req.body;
+
+  try {
+    // get todos column from db
+  const response = await pool.query("SELECT todos FROM todos WHERE user_id = $1", [user_id]);
+  const todos = response.rows[0].todos;
+  const newTodos = todos.map(item => item.componentId === componentId ? {...item, recentResponse: newResponse} : item );
+  
+  await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2",  [JSON.stringify(newTodos), user_id]);
+  res.status(201).json({ message: "Success", updatedTodos: newTodos });
+  } catch (error) {
+    console.log("Error updating recent response : " , error.message);
+  }
+});
+
 
 pool
   .connect()

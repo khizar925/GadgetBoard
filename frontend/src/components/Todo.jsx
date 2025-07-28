@@ -79,6 +79,7 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                 {
                     componentId: todoItem.componentId,
                     componentTitle: "Todo Gadget",
+                    editMode: false,
                     newTodo,
                 },
                 {

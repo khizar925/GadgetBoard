@@ -401,7 +401,7 @@ app.post("/generate-response", auth, async (req, res) => {
   const { prompt } = req.body;
   const updatedPrompt =
     prompt +
-    " . Response should be very very small. Response should not exceed 100 words. Give plain formatted text.";
+    " . Give plain formatted text.";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",

@@ -148,10 +148,8 @@ const Dashboard = () => {
         }
     }
     const handleDeleteComponent = (componentId) => {
-        console.log("Before delete:", todoData.map(i => i.componentId));
         setTodoData(prev => {
             const updated = prev.filter(item => Number(item.componentId) !== Number(componentId));
-            console.log("After delete:", updated.map(i => i.componentId));
             return updated;
         });
     };

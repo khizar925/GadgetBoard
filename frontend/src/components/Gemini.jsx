@@ -7,15 +7,38 @@ export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
     const [editOptionStatus, setEditOptionStatus] = useState(false);
     const [editedComponentTitle, setEditedComponentTitle] = useState(componentTitle);
     const [menuStatus, setMenuStatus] = useState(false);
-    const [recentResponse, setRecentResponse] = useState(todoItem.recentResponse);
+    const [recentResponse, setRecentResponse] = useState('');
     const [prompt, setPrompt] = useState('');
     const [token, setToken] = useState('');
+    const [showMoreStatus, setShowMoreStatus] = useState(false);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [smallResponse, setSmallResponse] = useState('');
 
     // UseEffect Hooks
     useEffect(() => {
         const fetchToken = localStorage.getItem("token");
         setToken(fetchToken);
     }, []);
+
+    useEffect(() => {
+        if (todoItem?.recentResponse?.length <= 0) {
+            setSmallResponse("No History found.");
+        } else {
+            if (todoItem?.recentResponse?.length > 0) {
+                if (todoItem?.recentResponse?.length > 500) {
+                    let smallResponse = todoItem.recentResponse.substring(0, 500);
+                    smallResponse = smallResponse + "    .....";
+                    setShowMoreStatus(true);
+                    setSmallResponse(smallResponse);
+                    setRecentResponse(todoItem.recentResponse);
+                } else {
+                    setSmallResponse(todoItem.recentResponse);
+                }
+            }
+            setRecentResponse(todoItem.recentResponse);
+        }
+    }, [todoItem.recentResponse]);
+
 
     // Functions
 
@@ -44,8 +67,17 @@ export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
                         }
                     }
                 )
-                setRecentResponse(response.data.data)
-                setPrompt("")
+                if (response.data.data.length > 500) {
+                    let smallResponse = response.data.data.substring(0, 500);
+                    smallResponse = smallResponse + "    ....."
+                    setSmallResponse(smallResponse);
+                    setRecentResponse(response.data.data);
+                    setShowMoreStatus(true);
+                    setPrompt("")
+                } else {
+                    setRecentResponse(response.data.data)
+                    setPrompt("")
+                }
             } catch (error) {
                 console.log("Error generating Response : ", error.message);
             }
@@ -98,6 +130,10 @@ export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
         setMenuStatus(false);
         setEditOptionStatus(!editOptionStatus);
     };
+
+    const openModal = () => {
+        setModalVisible(true);
+    }
 
 
     return (
@@ -158,24 +194,43 @@ export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
             </div>
 
             {/* Response */}
-            {(todoItem.recentResponse.length === 0) &&
-                <div className='p-4 bg-gray-100 justify-center align-center rounded-md w-full min-h-[150px]'>
-                    <span className='text-black'> No History Found</span>
-                </div>}
-
-            {(todoItem.recentResponse.length > 0) && <div className='p-4 bg-gray-100 justify-center align-center rounded-md w-full min-h-[150px]'>
-                Response : <span className='text-black'>{recentResponse}</span>
-            </div>}
+            <div className='p-4 bg-gray-100 justify-center align-center rounded-md w-full min-h-[150px]'>
+                Response : <span className='text-black'>{smallResponse}</span>
+                {showMoreStatus && (<button onClick={openModal} className='ml-2 text-blue-600 underline hover:text-blue-800'>
+                    Show More
+                </button>)}
+            </div>
 
             {/* Prompt input */}
             <div className='flex justify-left items-center w-full max-w-lg pt-4 gap-2'>
                 <input className='input min-w-102 rounded-md focus:outline-none' type='text' placeholder='Enter Prompt' value={prompt} onKeyDown={(e) => { if (e.key === 'Enter') handlePrompt(prompt) }} onChange={(e) => setPrompt(e.target.value)} required />
                 <button onClick={() => handlePrompt(prompt)} className='btn bg-blue-500 w-16 text-white'>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                     </svg>
                 </button>
             </div>
+
+            {/* Modal */}
+            {modalVisible && (<dialog id="todo_edit_modal" className="modal modal-open" onClick={() => setModalVisible(false)}>
+                <div className="modal-box w-[80%] h-[50%] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="font-bold text-lg mb-2">Full Response</h3>
+
+                    <div className="flex-grow overflow-y-auto mb-4">
+                        <p className="text-lg">{recentResponse}</p>
+                    </div>
+
+                    <div className="modal-action flex justify-end gap-2">
+                        <button
+                            className="btn bg-green-500 hover:bg-green-700 text-white"
+                            onClick={() => setModalVisible(false)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </dialog>
+            )}
         </div>
     )
 }

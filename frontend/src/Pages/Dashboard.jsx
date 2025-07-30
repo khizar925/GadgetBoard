@@ -3,6 +3,7 @@ import Todo from "../components/Todo.jsx";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Gemini from '../components/Gemini.jsx';
+import Media from '../components/Media.jsx';
 const Dashboard = () => {
     const toggleInitialStyle = {
         margin: "5px"
@@ -147,6 +148,32 @@ const Dashboard = () => {
             console.log ("Error in adding gemini component : ", error.message);
         }
     }
+    
+    const handleAddMediaComponent = async () => {
+        // logic
+        try {
+            const newComponent = {
+                componentId : Date.now(),
+                componentTitle: "Media Gadget",
+                componentType: "Media",
+                mediaURL: ""
+            };
+            const response = await axios.post('http://localhost:3000/add/component', 
+                newComponent,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+            const addedComponent = response.data.newComponent;
+            setTodoData(prev => [...prev, addedComponent]);
+        } catch (error) {
+            console.log ("Error in adding gemini component : ", error.message);
+        }
+    }
+
+
     const handleDeleteComponent = (componentId) => {
         setTodoData(prev => {
             const updated = prev.filter(item => Number(item.componentId) !== Number(componentId));
@@ -157,7 +184,7 @@ const Dashboard = () => {
     if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}><div>Loading...</div></div>;
 
     return (
-        <div className="p-6 bg-gray-100 min-h-screen">
+        <div className="p-6 max-h-[95vh] overflow-y-auto">
             {/* Header */}
             <div className="flex justify-between items-center bg-white p-4 rounded-md shadow mb-6">
                 <h1 className="text-xl font-semibold text-gray-800">Welcome to Dashboard, {loggedUser}</h1>
@@ -194,10 +221,18 @@ const Dashboard = () => {
                                 Add
                             </button>
                         </li>
+                        <li className="flex justify-between items-center bg-gray-100 px-4 py-2 rounded shadow-sm">
+                            <h3 className="text-md font-semibold text-gray-700">Media Gadget</h3>
+                            <button onClick={handleAddMediaComponent}
+                                className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition">
+                                Add
+                            </button>
+                        </li>
                     </ul>
                 </div>
             )}
             {/* Todo Grid */}
+            {/* max-h-[80vh] overflow-y-auto */}
             <div className="flex flex-wrap gap-4">
                 {todoData
                     .filter(item => item !== null && item !== undefined)
@@ -207,6 +242,8 @@ const Dashboard = () => {
                                 return <Gemini key={item.componentId} todoItem={item} onDelete={handleDeleteComponent} componentEditStatus={componentEditStatus} />
                             case "todo":
                                 return <Todo key={item.componentId} todoItem={item} onDelete={handleDeleteComponent} componentEditStatus={componentEditStatus} />
+                            case "Media":
+                                return <Media key={item.componentId} todoItem={item} onDelete={handleDeleteComponent} componentEditStatus={componentEditStatus} />
                         }
                     })}
             </div>

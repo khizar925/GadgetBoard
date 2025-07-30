@@ -4,6 +4,7 @@ import axios from 'axios';
 const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
     const [componentTitle, setComponentTitle] = useState(todoItem.componentTitle);
     const [title, setTitle] = useState('');
+    const [searchTitle, setsearchTitle] = useState('');
     const [todos, setTodos] = useState(todoItem.todos || []);
     const [menuStatus, setMenuStatus] = useState(false);
     const [editOptionStatus, setEditOptionStatus] = useState(false);
@@ -23,6 +24,7 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
     const [editTodoModalOpen, setEditTodoModalOpen] = useState(false);
     const [addTodoForm , setAddTodoForm] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
+    const [searchForm, setSearchForm] = useState(false);
 
 
     useEffect(() => {
@@ -101,6 +103,14 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             console.error('Failed to update component todos:', err.response?.data || err.message);
         }
     };
+
+    const submitSearch = async () => {
+        try {
+            const searchedTodos = await axios.get(`http://localhost:3000/search/${searchTitle}/${todoItem.componentId}`, {headers: {Authorization: `Bearer ${token}`}});
+        } catch (error) {
+            console.log("Error while searching : ", error.message);
+        }
+    }
 
     const deleteTodoComponent = async (componentId) => {
         try {
@@ -232,9 +242,19 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             setAddTodoForm(!addTodoForm);
         }
     };
+    const handleSearch = () => {
+        if (componentEditStatus) {
+            setSearchForm(false);
+        }
+    };
+
+    const searchTodos = () => {
+        setSearchForm(!searchForm);
+        setMenuStatus(!menuStatus);
+    }
 
     return (
-        <div className="bg-white rounded-lg shadow-md p-4 w-full max-w-lg">
+        <div className="bg-white rounded-lg shadow-md p-4 w-full max-w-lg border border-gray-300">
             {/* Header */}
             <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
@@ -272,6 +292,12 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                         </button>
                         {menuStatus && (
                             <div className="absolute right-0 mt-2 w-42 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20 dropdown-menu">
+                                <button
+                                    onClick={searchTodos}
+                                    className="block w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100"
+                                >
+                                    {searchForm ? "Cancel Search" : "Search Todos"}
+                                </button>
                                 <button
                                     onClick={handleAddTodo}
                                     className="block w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100"
@@ -343,6 +369,25 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                     Add Todo
                 </button><button onClick={handleAddTodo} className="w-0.8/2 m-2 bg-blue-500 text-white px-5 py-2 rounded-lg text-lg hover:bg-blue-600">
                     Cancel Todo
+                </button>
+            </form>)}
+
+
+            {/* Search Form */}
+            {searchForm && (<form onSubmit={submitSearch} className="space-y-2 mb-4">
+                <input
+                    name="Search"
+                    value={searchTitle}
+                    onChange={(e) => setsearchTitle(e.target.value)}
+                    placeholder="Search from Titles ..."
+                    className="w-full border rounded-md px-4 py-2 text-base"
+                    required
+                />
+                <button type="submit" className="w-0.8/2 mr-2 bg-blue-500 text-white px-5 py-2 rounded-lg text-lg hover:bg-blue-600">
+                    Search
+                </button>
+                <button onClick={handleSearch} className="w-0.8/2 m-2 bg-blue-500 text-white px-5 py-2 rounded-lg text-lg hover:bg-blue-600">
+                    Cancel
                 </button>
             </form>)}
 

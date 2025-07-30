@@ -232,6 +232,13 @@ app.post("/add/component", auth, async (req, res) => {
       componentType,
       recentResponse: "",
     };
+  } else if (componentType === "Media") {
+    newComponent = {
+      componentId,
+      componentTitle,
+      componentType,
+      mediaURL: "",
+    }
   }
 
   try {
@@ -424,13 +431,18 @@ app.post("/generate-response", auth, async (req, res) => {
 app.post ("/updateRecentResponse", auth, async (req, res) => {
   // logic
   const user_id = req.user.id;
-  const {componentId, newResponse} = req.body;
+  const {componentId, componentType, newResponse, url} = req.body;
 
   try {
     // get todos column from db
   const response = await pool.query("SELECT todos FROM todos WHERE user_id = $1", [user_id]);
   const todos = response.rows[0].todos;
-  const newTodos = todos.map(item => item.componentId === componentId ? {...item, recentResponse: newResponse} : item );
+  let newTodos;
+  if (componentType === "Gemini") {
+    newTodos = todos.map(item => item.componentId === componentId ? {...item, recentResponse: newResponse} : item );
+  } else if (componentType === "Media") {
+    newTodos = todos.map(item => item.componentId === componentId ? {...item, mediaURL: url} : item );
+  }
   
   await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2",  [JSON.stringify(newTodos), user_id]);
   res.status(201).json({ message: "Success", updatedTodos: newTodos });
@@ -439,6 +451,15 @@ app.post ("/updateRecentResponse", auth, async (req, res) => {
   }
 });
 
+app.get("/search/:searchTitle/:componentId", auth, async (req, res) => {
+  const user_id = req.user.id;
+  const {searchTitle, componentId } = req.params;
+  console.log(componentId);
+  const response = await pool.query("SELECT todos from todos WHERE user_id = $1", [user_id]);
+  let todos = response.rows[0].todos;
+  todos = todos.map((item) => console.log(item));
+  console.log (todos);
+})
 
 pool
   .connect()

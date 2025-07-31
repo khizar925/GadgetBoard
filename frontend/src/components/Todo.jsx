@@ -22,15 +22,17 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
     const [editDueTime, setEditDueTime] = useState('');
     const [editPriority, setEditPriority] = useState('Normal');
     const [editTodoModalOpen, setEditTodoModalOpen] = useState(false);
-    const [addTodoForm , setAddTodoForm] = useState(false);
+    const [addTodoForm, setAddTodoForm] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
     const [searchForm, setSearchForm] = useState(false);
-
+    const [searchingStatus, setSearchingStatus] = useState(false);
+    const [searchedTodos, setSearchedTodos] = useState([]);
 
     useEffect(() => {
         const fetchedToken = localStorage.getItem('token');
         setToken(fetchedToken);
     }, []);
+
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -104,11 +106,15 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
         }
     };
 
-    const submitSearch = async () => {
-        try {
-            const searchedTodos = await axios.get(`http://localhost:3000/search/${searchTitle}/${todoItem.componentId}`, {headers: {Authorization: `Bearer ${token}`}});
-        } catch (error) {
-            console.log("Error while searching : ", error.message);
+    const submitSearch = (e) => {
+        e.preventDefault();
+        setSearchingStatus(true);
+        let newTodoList = [];
+        if (todos.length > 0) {
+            newTodoList = todos.filter((item) =>
+                item.title.toLowerCase().includes(searchTitle.toLowerCase())
+            );
+            setSearchedTodos(newTodoList);
         }
     }
 
@@ -245,8 +251,12 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
     const handleSearch = () => {
         if (componentEditStatus) {
             setSearchForm(false);
+            setSearchingStatus(false);
+            setSearchedTodos([]);
+            setsearchTitle('');
         }
     };
+
 
     const searchTodos = () => {
         setSearchForm(!searchForm);
@@ -296,7 +306,7 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                                     onClick={searchTodos}
                                     className="block w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100"
                                 >
-                                    {searchForm ? "Cancel Search" : "Search Todos"}
+                                    Search Todo
                                 </button>
                                 <button
                                     onClick={handleAddTodo}
@@ -394,28 +404,29 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             {/* Todos */}
             <div className="max-h-64 overflow-y-auto pr-1">
                 <strong>Your Todos</strong>
-                <br/>
-                <br/>
-                {todos.length === 0 ? "No Todos" : ""}
+                <br />
+                <br />
+                {!searchingStatus && todos.length === 0 ? "No Todos" : ""}
+                {searchingStatus && searchedTodos.length === 0 ? "No Todo found" : ""}
                 <ul className="space-y-2">
-                    {todos.map((t, index) => (
+                    {!searchingStatus && todos.map((t, index) => (
                         <li key={t.id} className="bg-gray-100 px-3 py-2 rounded">
                             <div className="flex justify-between items-start">
                                 {editID !== t.id ? (
                                     <div className="text-base">
                                         <div className="font-semibold">
                                             <strong>Todo # {index + 1}</strong> :
-                                            <br/>
+                                            <br />
                                             <strong>Title : </strong> {t.title}
-                                            <br/>
+                                            <br />
                                             <strong>Description : </strong> {t.description}
-                                            <br/>
+                                            <br />
                                             <strong>Priority : </strong> {t.priority}
-                                            <br/>
+                                            <br />
                                             <strong>DueDate : </strong> {t.dueDate}
-                                            <br/>
+                                            <br />
                                             <strong>Due Time : </strong> {t.dueTime}
-                                            <br/>
+                                            <br />
                                         </div>
                                     </div>
                                 ) : (
@@ -428,20 +439,70 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                                     </div>
                                 )}
                                 {editOptionStatus && editID !== t.id && (
-                                    <div style={{display:"flex", justifyContent:"center", alignItems:"center"}}>
+                                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
                                         <button onClick={() => deleteTodo(t.id)}>
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                 stroke-width="1.5" stroke="currentColor" className="size-6">
+                                                stroke-width="1.5" stroke="currentColor" className="size-6">
                                                 <path stroke-linecap="round" stroke-linejoin="round"
-                                                      d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                             </svg>
                                         </button>
                                         <button onClick={() => editTodo(t.id)}
-                                                className="text-blue-600 hover:text-blue-800 text-base ml-2">
+                                            className="text-blue-600 hover:text-blue-800 text-base ml-2">
                                             ✏️
                                         </button>
                                     </div>
-                            )}
+                                )}
+                            </div>
+                        </li>
+                    ))}
+
+
+
+                    {searchingStatus && searchedTodos.map((t, index) => (
+                        <li key={t.id} className="bg-gray-100 px-3 py-2 rounded">
+                            <div className="flex justify-between items-start">
+                                {editID !== t.id ? (
+                                    <div className="text-base">
+                                        <div className="font-semibold">
+                                            <strong>Todo # {index + 1}</strong> :
+                                            <br />
+                                            <strong>Title : </strong> {t.title}
+                                            <br />
+                                            <strong>Description : </strong> {t.description}
+                                            <br />
+                                            <strong>Priority : </strong> {t.priority}
+                                            <br />
+                                            <strong>DueDate : </strong> {t.dueDate}
+                                            <br />
+                                            <strong>Due Time : </strong> {t.dueTime}
+                                            <br />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-1 w-full">
+                                        <input
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            className="w-full border rounded-md px-4 py-2 text-base"
+                                        />
+                                    </div>
+                                )}
+                                {editOptionStatus && editID !== t.id && (
+                                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                                        <button onClick={() => deleteTodo(t.id)}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                stroke-width="1.5" stroke="currentColor" className="size-6">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                            </svg>
+                                        </button>
+                                        <button onClick={() => editTodo(t.id)}
+                                            className="text-blue-600 hover:text-blue-800 text-base ml-2">
+                                            ✏️
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </li>
                     ))}

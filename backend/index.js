@@ -451,16 +451,6 @@ app.post ("/updateRecentResponse", auth, async (req, res) => {
   }
 });
 
-app.get("/search/:searchTitle/:componentId", auth, async (req, res) => {
-  const user_id = req.user.id;
-  const {searchTitle, componentId } = req.params;
-  console.log(componentId);
-  const response = await pool.query("SELECT todos from todos WHERE user_id = $1", [user_id]);
-  let todos = response.rows[0].todos;
-  todos = todos.map((item) => console.log(item));
-  console.log (todos);
-})
-
 pool
   .connect()
   .then(() => console.log("✅ Connected to PostgreSQL"))

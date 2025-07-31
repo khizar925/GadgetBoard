@@ -26,13 +26,25 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
     const [hasMounted, setHasMounted] = useState(false);
     const [searchForm, setSearchForm] = useState(false);
     const [searchingStatus, setSearchingStatus] = useState(false);
+    const [filteringStatus, setFilteringStatus] = useState(false);
     const [searchedTodos, setSearchedTodos] = useState([]);
+    const [filteredTodos, setFilteredTodos] = useState([]);
+    const [filter, setFilter] = useState('');
 
     useEffect(() => {
         const fetchedToken = localStorage.getItem('token');
         setToken(fetchedToken);
     }, []);
 
+    const submitSearch = (e) => {
+        e.preventDefault();
+        setSearchingStatus(true);
+        let newTodoList = [];
+        if (todos.length > 0) {
+            newTodoList = todos.filter((item) => item.title.toLowerCase().includes(searchTitle.toLowerCase()));
+            setSearchedTodos(newTodoList);
+        }
+    }
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -63,6 +75,10 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             setAddTodoForm(false);
         }
     }, [componentEditStatus, hasMounted]);
+
+    useEffect(() => {
+        handleFilterTodo();
+    }, [filter, todos]);
 
 
     const handleSubmit = async (e) => {
@@ -106,16 +122,25 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
         }
     };
 
-    const submitSearch = (e) => {
-        e.preventDefault();
-        setSearchingStatus(true);
-        let newTodoList = [];
-        if (todos.length > 0) {
-            newTodoList = todos.filter((item) =>
-                item.title.toLowerCase().includes(searchTitle.toLowerCase())
-            );
-            setSearchedTodos(newTodoList);
+    // const submitSearch = (e) => {
+    //     e.preventDefault();
+    //     setSearchingStatus(true);
+    //     let newTodoList = [];
+    //     if (todos.length > 0) {
+    //         newTodoList = todos.filter((item) => item.title.toLowerCase().includes(searchTitle.toLowerCase()));
+    //         setSearchedTodos(newTodoList);
+    //     }
+    // }
+
+    const handleFilterTodo = () => {
+        if (!filter || filter === "Select Priority") {
+            setFilteringStatus(false);
+            setFilteredTodos([]);
+            return;
         }
+        const newTodoList = todos.filter((item) => item.priority.toLowerCase() === filter.toLowerCase());
+        setFilteredTodos(newTodoList);
+        setFilteringStatus(true);
     }
 
     const deleteTodoComponent = async (componentId) => {
@@ -263,6 +288,22 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
         setMenuStatus(!menuStatus);
     }
 
+    const handleFilterChange = (e) => {
+        const selectedValue = e.target.value;
+        if (selectedValue !== "Select Priority") {
+            setFilter(selectedValue);
+            setSearchForm(false);
+            setSearchingStatus(false);
+            setSearchedTodos([]);
+            setsearchTitle('');
+            setFilteringStatus(true);
+        } else {
+            setFilteringStatus(false);
+            setFilteredTodos([]);
+        }
+    };
+
+
     return (
         <div className="bg-white rounded-lg shadow-md p-4 w-full max-w-lg border border-gray-300">
             {/* Header */}
@@ -402,14 +443,30 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             </form>)}
 
             {/* Todos */}
+            <div className="flex items-center justify-between p-2 border-b border-gray-200">
+                <strong className="text-lg font-medium text-gray-800">Your Todos</strong>
+                {componentEditStatus && (<div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Filter:</label>
+                    <select
+                        value={filter}
+                        onChange={handleFilterChange}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option>Select Priority</option>
+                        <option>Low</option>
+                        <option>Normal</option>
+                        <option>High</option>
+                    </select>
+                </div>)}
+            </div>
             <div className="max-h-64 overflow-y-auto pr-1">
-                <strong>Your Todos</strong>
                 <br />
                 <br />
-                {!searchingStatus && todos.length === 0 ? "No Todos" : ""}
+                {!searchingStatus && !filteringStatus && todos.length === 0 ? "No Todos" : ""}
                 {searchingStatus && searchedTodos.length === 0 ? "No Todo found" : ""}
+                {filteringStatus && filteredTodos.length === 0 ? "No filtered todos found" : ""}
+
                 <ul className="space-y-2">
-                    {!searchingStatus && todos.map((t, index) => (
+                    {!searchingStatus && !filteringStatus && todos.map((t, index) => (
                         <li key={t.id} className="bg-gray-100 px-3 py-2 rounded">
                             <div className="flex justify-between items-start">
                                 {editID !== t.id ? (
@@ -457,7 +514,53 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                         </li>
                     ))}
 
-
+                    {filteringStatus && filteredTodos.map((t, index) => (
+                        <li key={t.id} className="bg-gray-100 px-3 py-2 rounded">
+                            <div className="flex justify-between items-start">
+                                {editID !== t.id ? (
+                                    <div className="text-base">
+                                        <div className="font-semibold">
+                                            <strong>Todo # {index + 1}</strong> :
+                                            <br />
+                                            <strong>Title : </strong> {t.title}
+                                            <br />
+                                            <strong>Description : </strong> {t.description}
+                                            <br />
+                                            <strong>Priority : </strong> {t.priority}
+                                            <br />
+                                            <strong>DueDate : </strong> {t.dueDate}
+                                            <br />
+                                            <strong>Due Time : </strong> {t.dueTime}
+                                            <br />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-1 w-full">
+                                        <input
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            className="w-full border rounded-md px-4 py-2 text-base"
+                                        />
+                                    </div>
+                                )}
+                                {editOptionStatus && editID !== t.id && (
+                                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                                        <button onClick={() => deleteTodo(t.id)}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                stroke-width="1.5" stroke="currentColor" className="size-6">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                            </svg>
+                                        </button>
+                                        <button onClick={() => editTodo(t.id)}
+                                            className="text-blue-600 hover:text-blue-800 text-base ml-2">
+                                            ✏️
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </li>
+                    ))}
 
                     {searchingStatus && searchedTodos.map((t, index) => (
                         <li key={t.id} className="bg-gray-100 px-3 py-2 rounded">

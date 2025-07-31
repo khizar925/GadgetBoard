@@ -36,8 +36,7 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
         setToken(fetchedToken);
     }, []);
 
-    const submitSearch = (e) => {
-        e.preventDefault();
+    const submitSearch = () => {
         setSearchingStatus(true);
         let newTodoList = [];
         if (todos.length > 0) {
@@ -45,6 +44,10 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             setSearchedTodos(newTodoList);
         }
     }
+
+    useEffect(() => {
+        submitSearch();
+    }, [searchTitle]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -73,7 +76,13 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
         if (!componentEditStatus) {
             setEditOptionStatus(false);
             setAddTodoForm(false);
+            setFilter('');
+            setSearchForm(false);
+            setSearchingStatus(false);
+            setsearchTitle('');
+            setSearchedTodos([]);
         }
+
     }, [componentEditStatus, hasMounted]);
 
     useEffect(() => {
@@ -122,18 +131,9 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
         }
     };
 
-    // const submitSearch = (e) => {
-    //     e.preventDefault();
-    //     setSearchingStatus(true);
-    //     let newTodoList = [];
-    //     if (todos.length > 0) {
-    //         newTodoList = todos.filter((item) => item.title.toLowerCase().includes(searchTitle.toLowerCase()));
-    //         setSearchedTodos(newTodoList);
-    //     }
-    // }
 
     const handleFilterTodo = () => {
-        if (!filter || filter === "Select Priority") {
+        if (!filter || filter === "") {
             setFilteringStatus(false);
             setFilteredTodos([]);
             return;
@@ -273,15 +273,6 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
             setAddTodoForm(!addTodoForm);
         }
     };
-    const handleSearch = () => {
-        if (componentEditStatus) {
-            setSearchForm(false);
-            setSearchingStatus(false);
-            setSearchedTodos([]);
-            setsearchTitle('');
-        }
-    };
-
 
     const searchTodos = () => {
         setSearchForm(!searchForm);
@@ -290,18 +281,15 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
 
     const handleFilterChange = (e) => {
         const selectedValue = e.target.value;
-        if (selectedValue !== "Select Priority") {
-            setFilter(selectedValue);
-            setSearchForm(false);
-            setSearchingStatus(false);
-            setSearchedTodos([]);
-            setsearchTitle('');
-            setFilteringStatus(true);
-        } else {
-            setFilteringStatus(false);
-            setFilteredTodos([]);
-        }
+
+        setFilter(selectedValue);
+
+        setSearchForm(false);
+        setSearchingStatus(false);
+        setSearchedTodos([]);
+        setsearchTitle('');
     };
+
 
 
     return (
@@ -425,22 +413,7 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
 
 
             {/* Search Form */}
-            {searchForm && (<form onSubmit={submitSearch} className="space-y-2 mb-4">
-                <input
-                    name="Search"
-                    value={searchTitle}
-                    onChange={(e) => setsearchTitle(e.target.value)}
-                    placeholder="Search from Titles ..."
-                    className="w-full border rounded-md px-4 py-2 text-base"
-                    required
-                />
-                <button type="submit" className="w-0.8/2 mr-2 bg-blue-500 text-white px-5 py-2 rounded-lg text-lg hover:bg-blue-600">
-                    Search
-                </button>
-                <button onClick={handleSearch} className="w-0.8/2 m-2 bg-blue-500 text-white px-5 py-2 rounded-lg text-lg hover:bg-blue-600">
-                    Cancel
-                </button>
-            </form>)}
+            {searchForm && (<input name="Search" value={searchTitle} onChange={(e) => setsearchTitle(e.target.value)} placeholder="Search from Titles ..." className="w-full border rounded-md px-4 py-2 text-base" required />)}
 
             {/* Todos */}
             <div className="flex items-center justify-between p-2 border-b border-gray-200">
@@ -451,10 +424,10 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                         value={filter}
                         onChange={handleFilterChange}
                         className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        <option>Select Priority</option>
-                        <option>Low</option>
-                        <option>Normal</option>
-                        <option>High</option>
+                        <option value="">Select Priority</option>
+                        <option value="Low">Low</option>
+                        <option value="Normal">Normal</option>
+                        <option value="High">High</option>
                     </select>
                 </div>)}
             </div>

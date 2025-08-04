@@ -1,7 +1,9 @@
+import { useParams } from "react-router-dom";
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
+    const { id } = useParams();
     const [componentTitle, setComponentTitle] = useState(todoItem.componentTitle);
     const [title, setTitle] = useState('');
     const [searchTitle, setsearchTitle] = useState('');
@@ -108,6 +110,7 @@ const Todo = ({ todoItem, onDelete, componentEditStatus }) => {
                 {
                     componentId: todoItem.componentId,
                     componentTitle: "Todo Gadget",
+                    dashboardId: id,
                     editMode: false,
                     newTodo,
                 },

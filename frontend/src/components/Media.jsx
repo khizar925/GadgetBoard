@@ -1,8 +1,11 @@
+import { useParams } from "react-router-dom";
 import React, { useEffect, useState } from 'react'
 import ReactPlayer from 'react-player'
 import axios from 'axios';
-export default function Media({ todoItem, onDelete, componentEditStatus }) {
+export default function Media({ todoItem, onDelete, componentEditStatus, editStatus }) {
     // state variables
+    const [auth, setAuth] = useState(editStatus);
+    const { id } = useParams();
     const [editComponentTitle, setEditComponentTitle] = useState(false);
     const [componentTitle, setComponentTitle] = useState(todoItem.componentTitle);
     const [editOptionStatus, setEditOptionStatus] = useState(false);
@@ -93,7 +96,8 @@ export default function Media({ todoItem, onDelete, componentEditStatus }) {
             {
                 componentId: todoItem.componentId,
                 componentType: "Media",
-                url: inputUrl
+                url: inputUrl,
+                dashboardId : id
             },
             {
                 headers: {
@@ -175,7 +179,7 @@ export default function Media({ todoItem, onDelete, componentEditStatus }) {
             </div>)}
 
             {/* Input */}
-            <div className='flex justify-left items-center w-full max-w-lg pt-4 gap-2'>
+            {auth && componentEditStatus && <div className='flex justify-left items-center w-full max-w-lg pt-4 gap-2'>
                 <input
                     type="text"
                     value={inputUrl}
@@ -188,7 +192,7 @@ export default function Media({ todoItem, onDelete, componentEditStatus }) {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                     </svg>
                 </button>
-            </div>
+            </div>}
         </div>
     );
 

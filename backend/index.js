@@ -28,7 +28,7 @@ const pool = new Pool({
   database: process.env.DB_DATABASE,
 });
 
-// The client gets the API key from the environment variable `GEMINI_API_KEY`.
+// The client gets the API key from the environment variable GEMINI_API_KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Start Google OAuth
 app.get(
@@ -198,28 +198,114 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Get Todos
-app.get("/todos", auth, async (req, res) => {
+app.get("/dashboard/:id", auth, async (req, res) => {
+  const dashboardID = req.params.id;
+  const userID = req.user.id;
+
   try {
-    const result = await pool.query("SELECT * FROM todos WHERE user_id = $1", [
-      req.user.id,
-    ]);
-    res.status(200).json({
-      message: "Success",
-      result: result.rows[0].todos,
-    });
-  } catch (err) {
-    console.error("Get todos error:", err.message);
-    res.status(400).json({ message: "Error getting todos" });
+    const result = await pool.query(
+      "SELECT * FROM dashboard WHERE id = $1",
+      [dashboardID]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Dashboard not found" });
+    }
+
+    const dashboard = result.rows[0];
+
+    // Optional: Allow only owner or if public
+    if (dashboard.user_id !== userID && dashboard.editor !== "public") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    res.status(200).json({ dashboard });
+  } catch (error) {
+    console.error("Error fetching dashboard by ID:", error.message);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
+// app.get("/todos/:dashboardId", auth, async (req, res) => {
+//   const { dashboardId } = req.params;
+//   const userId = req.user.id;
+
+//   try {
+//     const response = await pool.query(
+//       "SELECT todos FROM todos WHERE dashboard_id = $1",
+//       [dashboardId]
+//     );
+
+//     const dbOwnerData = await pool.query("SELECT user_id FROM todos WHERE dashboard_id = $1", [dashboardId]);
+    
+
+//     if (response.rows.length === 0) {
+//       return res.status(404).json({ error: "No todos found" });
+//     }
+//     const todosArray = response.rows[0].todos;
+//     // console.log("dbOwner : " , response.rows)
+//     res.status(200).json({ data: todosArray, dbOwner : dbOwnerData.rows[0].user_id });
+//   } catch (err) {
+//     console.error("Error fetching todos:", err.message);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+app.get("/todos/:dashboardId", auth, async (req, res) => {
+  const { dashboardId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // First get the dashboard to check ownership
+    const dashboardResult = await pool.query(
+      "SELECT user_id FROM dashboard WHERE id = $1",
+      [dashboardId]
+    );
+
+    if (dashboardResult.rows.length === 0) {
+      return res.status(404).json({ error: "Dashboard not found" });
+    }
+
+    const dashboardOwner = dashboardResult.rows[0].user_id;
+
+    // Try to get existing todos for this dashboard
+    let response = await pool.query(
+      "SELECT todos FROM todos WHERE dashboard_id = $1",
+      [dashboardId]
+    );
+
+    let todosArray = [];
+    
+    // If no todos entry exists, create one
+    if (response.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO todos (user_id, dashboard_id, todos) VALUES ($1, $2, $3)",
+        [dashboardOwner, dashboardId, JSON.stringify([])]
+      );
+      todosArray = [];
+    } else {
+      todosArray = response.rows[0].todos;
+    }
+
+    res.status(200).json({ 
+      data: todosArray, 
+      dbOwner: dashboardOwner 
+    });
+  } catch (err) {
+    console.error("Error fetching todos:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 app.post("/add/component", auth, async (req, res) => {
   const user_id = req.user.id;
-  const { componentId, componentTitle, componentType } = req.body;
+  const { dashboard_id, componentId, componentTitle, componentType } = req.body;
+
   let newComponent;
   if (componentType === "todo") {
     newComponent = {
+      dashboard_id,
       componentId,
       componentTitle,
       componentType,
@@ -227,6 +313,7 @@ app.post("/add/component", auth, async (req, res) => {
     };
   } else if (componentType === "Gemini") {
     newComponent = {
+      dashboard_id,
       componentId,
       componentTitle,
       componentType,
@@ -234,30 +321,39 @@ app.post("/add/component", auth, async (req, res) => {
     };
   } else if (componentType === "Media") {
     newComponent = {
+      dashboard_id,
       componentId,
       componentTitle,
       componentType,
       mediaURL: "",
-    }
+    };
   }
 
   try {
     const result = await pool.query(
-      "SELECT todos FROM todos WHERE user_id = $1",
-      [user_id]
+      "SELECT todos FROM todos WHERE user_id = $1 AND dashboard_id = $2",
+      [user_id, dashboard_id]
     );
 
     let existingTodos = result.rows[0]?.todos || [];
+
     existingTodos.push(newComponent);
 
-    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2", [
-      JSON.stringify(existingTodos),
-      user_id,
-    ]);
+    if (result.rows.length > 0) {
+      await pool.query(
+        "UPDATE todos SET todos = $1 WHERE user_id = $2 AND dashboard_id = $3",
+        [JSON.stringify(existingTodos), user_id, dashboard_id]
+      );
+    } else {
+      await pool.query(
+        "INSERT INTO todos (user_id, dashboard_id, todos) VALUES ($1, $2, $3)",
+        [user_id, dashboard_id, JSON.stringify([newComponent])]
+      );
+    }
 
     res.status(200).json({
       message: "New component added.",
-      newComponent: newComponent,
+      newComponent,
     });
   } catch (err) {
     console.error("Error adding component:", err.message);
@@ -267,12 +363,12 @@ app.post("/add/component", auth, async (req, res) => {
 
 app.post("/todos/update-component", auth, async (req, res) => {
   const user_id = req.user.id;
-  const { componentId, newTodo, editMode } = req.body;
+  const { componentId, newTodo, editMode, dashboardId } = req.body;
 
   try {
     const result = await pool.query(
-      "SELECT todos FROM todos WHERE user_id = $1",
-      [user_id]
+      "SELECT todos FROM todos WHERE user_id = $1 AND dashboard_id = $2",
+      [user_id, dashboardId]
     );
 
     let todosArray = result.rows[0]?.todos || [];
@@ -406,16 +502,14 @@ app.post("/todos/delete", auth, async (req, res) => {
 
 app.post("/generate-response", auth, async (req, res) => {
   const { prompt } = req.body;
-  const updatedPrompt =
-    prompt +
-    " . Give plain formatted text.";
+  const updatedPrompt = prompt + " . Give plain formatted text.";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: updatedPrompt,
       config: {
         thinkingConfig: {
-          thinkingBudget: 1, // Disables thinking
+          thinkingBudget: 1, // Disables thinking -> 0
         },
       },
     });
@@ -427,27 +521,104 @@ app.post("/generate-response", auth, async (req, res) => {
   }
 });
 
-
-app.post ("/updateRecentResponse", auth, async (req, res) => {
+app.post("/updateRecentResponse", auth, async (req, res) => {
   // logic
   const user_id = req.user.id;
-  const {componentId, componentType, newResponse, url} = req.body;
+  const { componentId, componentType, newResponse, url, dashboardId } = req.body;
 
   try {
     // get todos column from db
-  const response = await pool.query("SELECT todos FROM todos WHERE user_id = $1", [user_id]);
-  const todos = response.rows[0].todos;
-  let newTodos;
-  if (componentType === "Gemini") {
-    newTodos = todos.map(item => item.componentId === componentId ? {...item, recentResponse: newResponse} : item );
-  } else if (componentType === "Media") {
-    newTodos = todos.map(item => item.componentId === componentId ? {...item, mediaURL: url} : item );
-  }
-  
-  await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2",  [JSON.stringify(newTodos), user_id]);
-  res.status(201).json({ message: "Success", updatedTodos: newTodos });
+    const response = await pool.query(
+      "SELECT todos FROM todos WHERE user_id = $1 AND dashboard_id = $2",
+      [user_id, dashboardId]
+    );
+    const todos = response.rows[0].todos;
+    let newTodos;
+    if (componentType === "Gemini") {
+      newTodos = todos.map((item) =>
+        item.componentId === componentId
+          ? { ...item, recentResponse: newResponse }
+          : item
+      );
+    } else if (componentType === "Media") {
+      newTodos = todos.map((item) =>
+        item.componentId === componentId ? { ...item, mediaURL: url } : item
+      );
+    }
+
+    await pool.query("UPDATE todos SET todos = $1 WHERE user_id = $2 AND dashboard_id = $3", [
+      JSON.stringify(newTodos),
+      user_id,
+      dashboardId
+    ]);
+    res.status(201).json({ message: "Success", updatedTodos: newTodos });
   } catch (error) {
-    console.log("Error updating recent response : " , error.message);
+    console.log("Error updating recent response : ", error.message);
+  }
+});
+
+app.post("/dashboard", auth, async (req, res) => {
+  const { title, editor } = req.body;
+  const user_id = req.user.id;
+  const ownerEmail = req.user.email;
+
+  try {
+    const response = await pool.query(
+      "INSERT INTO dashboard (user_id, title, editor, ownerEmail) VALUES ($1, $2, $3, $4) RETURNING *",
+      [user_id, title, editor, ownerEmail]
+    );
+    res.status(201).json(response.rows[0]);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.get("/dashboard", auth, async (req, res) => {
+  const user_id = req.user.id;
+  try {
+    const result = await pool.query(
+      "SELECT * FROM dashboard WHERE editor = 'public' OR user_id = $1",
+      [user_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Dashboard not found or access denied" });
+    }
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("Error fetching dashboard:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+app.delete("/dashboard/:id", auth, async (req, res) => {
+  const dashboardID = req.params.id;
+  const userID = req.user.id;
+
+  try {
+    const dashboard = await pool.query(
+      "SELECT * FROM dashboard WHERE id = $1 AND user_id = $2",
+      [dashboardID, userID]
+    );
+
+    if (dashboard.rowCount === 0) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized or dashboard not found" });
+    }
+
+    await pool.query("DELETE FROM todos WHERE dashboard_id = $1", [
+      dashboardID,
+    ]);
+
+    await pool.query("DELETE FROM dashboard WHERE id = $1", [dashboardID]);
+
+    res.status(200).json({ message: "Dashboard and related todos deleted" });
+  } catch (err) {
+    console.error("DELETE error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

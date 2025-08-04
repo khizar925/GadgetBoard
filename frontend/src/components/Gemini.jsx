@@ -1,7 +1,9 @@
+import { useParams } from "react-router-dom";
 import React, { useEffect, useState } from 'react'
 import axios from 'axios';
-export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
-    // console.log("From Gemini JSX : ", todoItem);
+export default function Gemini({ todoItem, onDelete, componentEditStatus, editStatus }) {
+    const [auth, setAuth] = useState(editStatus);
+    const { id } = useParams();
     const [componentTitle, setComponentTitle] = useState(todoItem.componentTitle);
     const [editComponentTitle, setEditComponentTitle] = useState(false);
     const [editOptionStatus, setEditOptionStatus] = useState(false);
@@ -62,6 +64,7 @@ export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
                 const dbResponse = await axios.post("http://localhost:3000/updateRecentResponse",
                     {
                         componentId: todoItem.componentId,
+                        dashboardId : id,
                         componentType: "Gemini",
                         newResponse: response.data.data
                     },
@@ -208,14 +211,14 @@ export default function Gemini({ todoItem, onDelete, componentEditStatus }) {
 
 
             {/* Prompt input */}
-            <div className='flex justify-left items-center w-full max-w-lg pt-4 gap-2'>
+            {auth && componentEditStatus && (<div className='flex justify-left items-center w-full max-w-lg pt-4 gap-2'>
                 <input className='input min-w-102 rounded-md focus:outline-none' type='text' placeholder='Enter Prompt' value={prompt} onKeyDown={(e) => { if (e.key === 'Enter') handlePrompt(prompt) }} onChange={(e) => setPrompt(e.target.value)} required />
                 <button onClick={() => handlePrompt(prompt)} className='btn bg-blue-500 w-16 text-white'>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                     </svg>
                 </button>
-            </div>
+            </div>)}
 
             {/* Modal */}
             {modalVisible && (<dialog id="todo_edit_modal" className="modal modal-open" onClick={() => setModalVisible(false)}>

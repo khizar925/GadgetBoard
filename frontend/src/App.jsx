@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import LandingPage from "./Pages/LandingPage";
 import Dashboard from "./Pages/Dashboard";
+import ChildDashBoard from "./Pages/ChildDashBoard";
 import LoginPage from "./Pages/LoginPage";
 import SignUpPage from "./Pages/SignUpPage";
 import NotFoundPage from "./Pages/NotFoundPage";
@@ -23,6 +24,7 @@ function App() {
                 <Route path='/login' element={<LoginPage />}/>
                 <Route path='/signup' element={<SignUpPage/>}/>
                 <Route path='/dashboard' element={<Dashboard/>}/>
+                <Route path='/dashboard/:id' element={<ChildDashBoard/>} />
                 <Route path='/oauth-success' element={<OAuthSuccess/>}/>
                 <Route path='/about' element={<About/>}/>
                 <Route path='/contact' element={<Contact/>}/>
